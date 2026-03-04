@@ -17,35 +17,25 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: Debug - List Files
-        # This shows us exactly what GitHub sees in the root
-        run: ls -R
-
-      - name: Grant Permissions and Build
+      - name: Create local.properties
         run: |
-          # Find the gradlew file regardless of where it is
-          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
-          if [ -z "$GRADLEW_PATH" ]; then
-            echo "Error: gradlew not found!"
-            exit 1
-          fi
-          
-          # Change to the directory containing gradlew
-          cd $(dirname "$GRADLEW_PATH")
-          chmod +x gradlew
-          
-          # Create properties file in the same directory as gradlew
           echo "TG_BOT_TOKEN=${{ secrets.TG_BOT_TOKEN }}" > local.properties
           echo "TG_GROUP_ID=${{ secrets.TG_GROUP_ID }}" >> local.properties
-          
-          # Run the build with 'clean' to force a fresh start
-          ./gradlew clean assembleDebug --no-daemon
+          cat local.properties # This will show if the file was created (secrets will be masked)
+
+      - name: Grant Execute Permission
+        run: chmod +x gradlew
+
+      - name: Run Gradle Build
+        # --no-daemon prevents the build from hanging in the background
+        # :app:assembleDebug tells Gradle exactly which module to build
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          # We use a very broad search to ensure we grab the file
-          path: "**/*.apk"
+          path: "**/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
