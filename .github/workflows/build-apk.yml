@@ -2,49 +2,30 @@ name: Build APK
 
 on:
   push:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: "17"
 
-      - name: Locate and Build APK
+      - name: Create local.properties from secrets
         run: |
-          # 1. Find where gradlew is hiding
-          GRADLEW_FILE=$(find . -name "gradlew" | head -n 1)
-          if [ -z "$GRADLEW_FILE" ]; then
-            echo "ERROR: gradlew not found in the repository!"
-            exit 1
-          fi
-          
-          # 2. Move into that directory
-          BUILD_DIR=$(dirname "$GRADLEW_FILE")
-          cd "$BUILD_DIR"
-          echo "Moving to $BUILD_DIR to start the build..."
-          
-          # 3. Grant permissions
-          chmod +x gradlew
-          
-          # 4. Run the build with injected secrets
-          ./gradlew :app:assembleDebug \
-            -PTG_BOT_TOKEN="${{ secrets.TG_BOT_TOKEN }}" \
-            -PTG_GROUP_ID="${{ secrets.TG_GROUP_ID }}" \
-            --no-daemon --stacktrace
+          echo "TG_BOT_TOKEN=${{ secrets.TG_BOT_TOKEN }}" > local.properties
+          echo "TG_GROUP_ID=${{ secrets.TG_GROUP_ID }}" >> local.properties
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          # This search pattern looks through ALL folders for the resulting APK
-          path: "**/*.apk"
-          if-no-files-found: error
+          path: app/build/outputs/apk/debug/app-debug.apk
