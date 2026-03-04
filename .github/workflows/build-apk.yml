@@ -17,25 +17,27 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
-
-      - name: Create local.properties
-        run: |
-          echo "TG_BOT_TOKEN=${{ secrets.TG_BOT_TOKEN }}" > local.properties
-          echo "TG_GROUP_ID=${{ secrets.TG_GROUP_ID }}" >> local.properties
-          cat local.properties # This will show if the file was created (secrets will be masked)
 
       - name: Grant Execute Permission
         run: chmod +x gradlew
 
-      - name: Run Gradle Build
-        # --no-daemon prevents the build from hanging in the background
-        # :app:assembleDebug tells Gradle exactly which module to build
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Build with Gradle
+        # We use 'clean' to remove any old build states
+        # -P passes the secrets directly to the build script
+        run: >
+          ./gradlew clean :app:assembleDebug 
+          -PTG_BOT_TOKEN="${{ secrets.TG_BOT_TOKEN }}" 
+          -PTG_GROUP_ID="${{ secrets.TG_GROUP_ID }}" 
+          --no-daemon 
+          --stacktrace
+
+      - name: Verify APK Location
+        run: find . -name "*.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: "**/build/outputs/apk/debug/*.apk"
+          # We search for any APK in the app folder
+          path: "app/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
