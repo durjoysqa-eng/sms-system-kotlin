@@ -18,26 +18,33 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Grant Execute Permission
-        run: chmod +x gradlew
-
-      - name: Build with Gradle
-        # We use 'clean' to remove any old build states
-        # -P passes the secrets directly to the build script
-        run: >
-          ./gradlew clean :app:assembleDebug 
-          -PTG_BOT_TOKEN="${{ secrets.TG_BOT_TOKEN }}" 
-          -PTG_GROUP_ID="${{ secrets.TG_GROUP_ID }}" 
-          --no-daemon 
-          --stacktrace
-
-      - name: Verify APK Location
-        run: find . -name "*.apk"
+      - name: Locate and Build APK
+        run: |
+          # 1. Find where gradlew is hiding
+          GRADLEW_FILE=$(find . -name "gradlew" | head -n 1)
+          if [ -z "$GRADLEW_FILE" ]; then
+            echo "ERROR: gradlew not found in the repository!"
+            exit 1
+          fi
+          
+          # 2. Move into that directory
+          BUILD_DIR=$(dirname "$GRADLEW_FILE")
+          cd "$BUILD_DIR"
+          echo "Moving to $BUILD_DIR to start the build..."
+          
+          # 3. Grant permissions
+          chmod +x gradlew
+          
+          # 4. Run the build with injected secrets
+          ./gradlew :app:assembleDebug \
+            -PTG_BOT_TOKEN="${{ secrets.TG_BOT_TOKEN }}" \
+            -PTG_GROUP_ID="${{ secrets.TG_GROUP_ID }}" \
+            --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          # We search for any APK in the app folder
-          path: "app/build/outputs/apk/debug/*.apk"
+          # This search pattern looks through ALL folders for the resulting APK
+          path: "**/*.apk"
           if-no-files-found: error
