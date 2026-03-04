@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -16,16 +17,22 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Create local.properties from secrets
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Create local.properties
         run: |
           echo "TG_BOT_TOKEN=${{ secrets.TG_BOT_TOKEN }}" > local.properties
           echo "TG_GROUP_ID=${{ secrets.TG_GROUP_ID }}" >> local.properties
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew clean assembleDebug --stacktrace
+
+      - name: Debug APK location
+        run: ls -R app/build/outputs/apk || true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/**/*.apk
